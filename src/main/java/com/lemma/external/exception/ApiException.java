@@ -31,6 +31,14 @@ public class ApiException extends RuntimeException {
         return new ApiException(502, "MARKET_DATA_UNAVAILABLE", "Dados de mercado indisponíveis.");
     }
 
+    /**
+     * 502 HISTORY_UNAVAILABLE: qualquer falha do CT25 (Blockscout fora do ar, limite
+     * excedido, tempo esgotado, resposta fora do formato; seção 7 do desenho).
+     */
+    public static ApiException historyUnavailable() {
+        return new ApiException(502, "HISTORY_UNAVAILABLE", "Histórico de transações indisponível.");
+    }
+
     public int getStatus() {
         return status;
     }

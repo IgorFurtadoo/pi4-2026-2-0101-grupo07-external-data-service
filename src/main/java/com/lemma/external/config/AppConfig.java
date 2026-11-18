@@ -20,7 +20,10 @@ public record AppConfig(
         String serviceKey,
         String coingeckoApiKey,
         String coingeckoBaseUrl,
-        int coingeckoTimeoutSeconds) {
+        int coingeckoTimeoutSeconds,
+        String blockscoutBaseUrl,
+        int blockscoutTimeoutSeconds,
+        int historyCacheSeconds) {
 
     // Valores de exemplo do .env.example. São recusados para o serviço nunca
     // subir com um segredo que está publicado no repositório.
@@ -36,6 +39,16 @@ public record AppConfig(
      */
     static final int MAX_COINGECKO_TIMEOUT_SECONDS = 6;
 
+    /**
+     * Teto do prazo da chamada ao Blockscout. O histórico faz uma única chamada
+     * externa, e o Core API espera até 15 s: 10 s deixa 5 s de folga (seção 7 do
+     * desenho).
+     */
+    static final int MAX_BLOCKSCOUT_TIMEOUT_SECONDS = 10;
+
+    /** Teto da validade do cache do histórico: acima de um minuto a lista fica velha demais. */
+    static final int MAX_HISTORY_CACHE_SECONDS = 60;
+
     public static AppConfig fromEnv(Map<String, String> env) {
         Reader reader = new Reader(env);
 
@@ -46,12 +59,16 @@ public record AppConfig(
                 "troque pela chave do plano Demo da CoinGecko");
         String coingeckoBaseUrl = reader.httpUrl("COINGECKO_BASE_URL");
         int coingeckoTimeoutSeconds = reader.boundedInt("COINGECKO_TIMEOUT_SECONDS", MAX_COINGECKO_TIMEOUT_SECONDS);
+        String blockscoutBaseUrl = reader.httpUrl("BLOCKSCOUT_BASE_URL");
+        int blockscoutTimeoutSeconds = reader.boundedInt("BLOCKSCOUT_TIMEOUT_SECONDS", MAX_BLOCKSCOUT_TIMEOUT_SECONDS);
+        int historyCacheSeconds = reader.boundedInt("HISTORY_CACHE_SECONDS", MAX_HISTORY_CACHE_SECONDS);
 
         if (!reader.problems.isEmpty()) {
             throw new IllegalStateException(String.join("; ", reader.problems));
         }
 
-        return new AppConfig(serverPort, serviceKey, coingeckoApiKey, coingeckoBaseUrl, coingeckoTimeoutSeconds);
+        return new AppConfig(serverPort, serviceKey, coingeckoApiKey, coingeckoBaseUrl, coingeckoTimeoutSeconds,
+                blockscoutBaseUrl, blockscoutTimeoutSeconds, historyCacheSeconds);
     }
 
     /** Não imprime os segredos (chave de serviço e chave da CoinGecko). */
@@ -59,7 +76,10 @@ public record AppConfig(
     public String toString() {
         return "AppConfig[serverPort=" + serverPort
                 + ", coingeckoBaseUrl=" + coingeckoBaseUrl
-                + ", coingeckoTimeoutSeconds=" + coingeckoTimeoutSeconds + "]";
+                + ", coingeckoTimeoutSeconds=" + coingeckoTimeoutSeconds
+                + ", blockscoutBaseUrl=" + blockscoutBaseUrl
+                + ", blockscoutTimeoutSeconds=" + blockscoutTimeoutSeconds
+                + ", historyCacheSeconds=" + historyCacheSeconds + "]";
     }
 
     /** Lê cada variável e acumula os problemas encontrados, sem parar no primeiro. */

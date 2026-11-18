@@ -26,6 +26,9 @@ class AppConfigTest {
         env.put("COINGECKO_API_KEY", TEST_COINGECKO_API_KEY);
         env.put("COINGECKO_BASE_URL", "https://api.coingecko.com/api/v3");
         env.put("COINGECKO_TIMEOUT_SECONDS", "6");
+        env.put("BLOCKSCOUT_BASE_URL", "https://eth-sepolia.blockscout.com/api/v2");
+        env.put("BLOCKSCOUT_TIMEOUT_SECONDS", "6");
+        env.put("HISTORY_CACHE_SECONDS", "12");
         return env;
     }
 
@@ -48,6 +51,9 @@ class AppConfigTest {
         assertEquals(TEST_COINGECKO_API_KEY, config.coingeckoApiKey());
         assertEquals("https://api.coingecko.com/api/v3", config.coingeckoBaseUrl());
         assertEquals(6, config.coingeckoTimeoutSeconds());
+        assertEquals("https://eth-sepolia.blockscout.com/api/v2", config.blockscoutBaseUrl());
+        assertEquals(6, config.blockscoutTimeoutSeconds());
+        assertEquals(12, config.historyCacheSeconds());
     }
 
     @Test
@@ -113,6 +119,43 @@ class AppConfigTest {
         }
         assertEquals(1, AppConfig.fromEnv(envWith("COINGECKO_TIMEOUT_SECONDS", "1")).coingeckoTimeoutSeconds());
         assertEquals(6, AppConfig.fromEnv(envWith("COINGECKO_TIMEOUT_SECONDS", "6")).coingeckoTimeoutSeconds());
+    }
+
+    @Test
+    void failsWhenBlockscoutTimeoutIsOutsideOneToTen() {
+        for (String value : new String[] {"abc", "0", "-1", "2.5", "11", "15"}) {
+            assertEquals("BLOCKSCOUT_TIMEOUT_SECONDS inválida: precisa ser um número inteiro de 1 a 10",
+                    failureMessage(envWith("BLOCKSCOUT_TIMEOUT_SECONDS", value)), value);
+        }
+        assertEquals(1, AppConfig.fromEnv(envWith("BLOCKSCOUT_TIMEOUT_SECONDS", "1")).blockscoutTimeoutSeconds());
+        assertEquals(10, AppConfig.fromEnv(envWith("BLOCKSCOUT_TIMEOUT_SECONDS", "10")).blockscoutTimeoutSeconds());
+    }
+
+    @Test
+    void failsWhenHistoryCacheIsOutsideOneToSixty() {
+        for (String value : new String[] {"abc", "0", "-12", "1.5", "61", "3600"}) {
+            assertEquals("HISTORY_CACHE_SECONDS inválida: precisa ser um número inteiro de 1 a 60",
+                    failureMessage(envWith("HISTORY_CACHE_SECONDS", value)), value);
+        }
+        assertEquals(1, AppConfig.fromEnv(envWith("HISTORY_CACHE_SECONDS", "1")).historyCacheSeconds());
+        assertEquals(60, AppConfig.fromEnv(envWith("HISTORY_CACHE_SECONDS", "60")).historyCacheSeconds());
+    }
+
+    @Test
+    void failsWhenBlockscoutBaseUrlIsInvalid() {
+        for (String value : new String[] {
+                "eth-sepolia.blockscout.com/api/v2",
+                "ftp://eth-sepolia.blockscout.com/api/v2",
+                "https://",
+                "https://user:pass@eth-sepolia.blockscout.com/api/v2",
+                "https://eth-sepolia.blockscout.com/api/v2?apikey=1",
+                "https://eth-sepolia.blockscout.com/api/v2#x",
+                "https://eth sepolia.blockscout.com"}) {
+            assertTrue(failureMessage(envWith("BLOCKSCOUT_BASE_URL", value)).startsWith("BLOCKSCOUT_BASE_URL inválida"),
+                    value);
+        }
+        assertEquals("http://127.0.0.1:9999/api/v2",
+                AppConfig.fromEnv(envWith("BLOCKSCOUT_BASE_URL", "http://127.0.0.1:9999/api/v2/")).blockscoutBaseUrl());
     }
 
     @Test
@@ -184,6 +227,7 @@ class AppConfigTest {
         assertFalse(text.contains(TEST_SERVICE_KEY), text);
         assertFalse(text.contains(TEST_COINGECKO_API_KEY), text);
         assertEquals("AppConfig[serverPort=8082, coingeckoBaseUrl=https://api.coingecko.com/api/v3,"
-                + " coingeckoTimeoutSeconds=6]", text);
+                + " coingeckoTimeoutSeconds=6, blockscoutBaseUrl=https://eth-sepolia.blockscout.com/api/v2,"
+                + " blockscoutTimeoutSeconds=6, historyCacheSeconds=12]", text);
     }
 }
