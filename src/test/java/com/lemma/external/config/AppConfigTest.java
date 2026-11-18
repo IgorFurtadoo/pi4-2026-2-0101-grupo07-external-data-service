@@ -2,6 +2,9 @@ package com.lemma.external.config;
 
 import org.junit.jupiter.api.Test;
 
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -142,6 +145,34 @@ class AppConfigTest {
         assertFalse(message.contains("senha-secreta"), message);
         assertFalse(message.contains(TEST_SERVICE_KEY), message);
         assertFalse(message.contains(TEST_COINGECKO_API_KEY), message);
+    }
+
+    /**
+     * O .env.example do repositório traz todas as variáveis, e só os dois segredos
+     * são recusados, por estarem com o valor de exemplo. Trava o arquivo e as
+     * constantes da AppConfig juntos.
+     */
+    @Test
+    void envExampleIsCompleteAndOnlyItsSecretsAreRefused() throws IOException {
+        Map<String, String> env = new HashMap<>();
+        for (String line : Files.readAllLines(Path.of(".env.example"))) {
+            if (!line.isBlank() && !line.startsWith("#")) {
+                env.put(line.substring(0, line.indexOf('=')), line.substring(line.indexOf('=') + 1));
+            }
+        }
+
+        assertEquals(validEnv().keySet(), env.keySet());
+        assertEquals(AppConfig.EXAMPLE_SERVICE_KEY, env.get("SERVICE_KEY"));
+        assertEquals(AppConfig.EXAMPLE_COINGECKO_API_KEY, env.get("COINGECKO_API_KEY"));
+
+        String[] problems = failureMessage(env).split("; ");
+        assertEquals(2, problems.length);
+        assertTrue(problems[0].startsWith("SERVICE_KEY está com o valor de exemplo"), problems[0]);
+        assertTrue(problems[1].startsWith("COINGECKO_API_KEY está com o valor de exemplo"), problems[1]);
+
+        env.put("SERVICE_KEY", TEST_SERVICE_KEY);
+        env.put("COINGECKO_API_KEY", TEST_COINGECKO_API_KEY);
+        assertEquals(8082, AppConfig.fromEnv(env).serverPort());
     }
 
     @Test

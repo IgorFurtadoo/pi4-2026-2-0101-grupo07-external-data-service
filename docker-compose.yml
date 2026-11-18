@@ -1,0 +1,18 @@
+# Compose para desenvolver o External Data Service. Não tem banco.
+# Onde mora o compose do sistema inteiro ainda não foi decidido.
+
+services:
+  external-data-service:
+    build: .
+    env_file: .env
+    ports:
+      # Só no loopback, para teste por curl. O SERVER_PORT do .env precisa continuar 8082.
+      - "127.0.0.1:8082:8082"
+    # Só a lemma-dev: é por ela que o Core API o alcança em http://external-data-service:8082.
+    networks:
+      - lemma-dev
+
+networks:
+  # Rede compartilhada com o Core API e o Blockchain Service (docker network create lemma-dev).
+  lemma-dev:
+    external: true
