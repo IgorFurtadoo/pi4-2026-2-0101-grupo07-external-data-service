@@ -1,17 +1,22 @@
 package com.lemma.external;
 
+import com.lemma.external.client.BlockscoutClient;
 import com.lemma.external.client.CoinGeckoClient;
 import com.lemma.external.config.AppConfig;
 import com.lemma.external.config.JsonConfig;
+import com.lemma.external.controller.AddressHistoryController;
 import com.lemma.external.controller.ErrorHandler;
 import com.lemma.external.controller.MarketDataController;
 import com.lemma.external.security.ServiceKeyFilter;
+import com.lemma.external.service.AddressHistoryService;
+import com.lemma.external.service.HistoryCache;
 import com.lemma.external.service.MarketDataService;
 import io.javalin.Javalin;
 import io.javalin.config.JavalinConfig;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.time.Clock;
 import java.time.Duration;
 
 /**
@@ -48,12 +53,20 @@ public class Main {
         log.info("External Data Service no ar na porta {} com {}", config.serverPort(), config);
     }
 
-    /** Monta cliente, service e controller e cria o Javalin com {@link #configure}, sem abrir a porta. */
+    /** Monta clientes, services e controllers e cria o Javalin com {@link #configure}, sem abrir a porta. */
     public static Javalin createApp(AppConfig config) {
         CoinGeckoClient coinGecko = new CoinGeckoClient(config.coingeckoBaseUrl(), config.coingeckoApiKey(),
                 Duration.ofSeconds(config.coingeckoTimeoutSeconds()));
         MarketDataController marketData = new MarketDataController(new MarketDataService(coinGecko));
-        return Javalin.create(javalin -> configure(javalin, config.serviceKey(), marketData));
+
+        BlockscoutClient blockscout = new BlockscoutClient(config.blockscoutBaseUrl(),
+                Duration.ofSeconds(config.blockscoutTimeoutSeconds()));
+        HistoryCache historyCache = new HistoryCache(Duration.ofSeconds(config.historyCacheSeconds()),
+                HistoryCache.MAX_ADDRESSES, Clock.systemUTC());
+        AddressHistoryController history =
+                new AddressHistoryController(new AddressHistoryService(blockscout, historyCache));
+
+        return Javalin.create(javalin -> configure(javalin, config.serviceKey(), marketData, history));
     }
 
     /**
@@ -64,7 +77,8 @@ public class Main {
      * O Javalin roda as fases nesta ordem, qualquer que seja a ordem de registro:
      * before → beforeMatched (chave de serviço) → rota (ou 404/405) → after.
      */
-    public static void configure(JavalinConfig javalin, String serviceKey, MarketDataController marketData) {
+    public static void configure(JavalinConfig javalin, String serviceKey, MarketDataController marketData,
+                                 AddressHistoryController history) {
         // Preços em notação plana na resposta (seção 6 do desenho).
         javalin.jsonMapper(JsonConfig.jsonMapper());
         // Rota existente com método errado responde 405, não 404.
@@ -76,7 +90,7 @@ public class Main {
         ServiceKeyFilter serviceKeyFilter = new ServiceKeyFilter(serviceKey);
         javalin.routes.beforeMatched(serviceKeyFilter::handle);
 
-        javalin.routes.get(MarketDataController.PATH, marketData::fetchMarketData);   // CT18
-        // A rota do histórico entra no passo E3.
+        javalin.routes.get(MarketDataController.PATH, marketData::fetchMarketData);             // CT18
+        javalin.routes.get(AddressHistoryController.PATH, history::fetchAddressTransactions);   // CT24
     }
 }

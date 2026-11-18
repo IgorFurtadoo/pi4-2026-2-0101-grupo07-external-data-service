@@ -28,6 +28,9 @@ class ErrorHandlerTest {
             javalin.routes.get("/test/inesperado", ctx -> {
                 throw new IllegalStateException("detalhe-interno-que-nao-pode-vazar");
             });
+            javalin.routes.get("/test/inesperado/{valor}", ctx -> {
+                throw new IllegalStateException("falha");
+            });
         });
     }
 
@@ -56,6 +59,18 @@ class ErrorHandlerTest {
             assertFalse(response.body().contains("detalhe-interno"));
             assertEquals("ERROR Erro inesperado em GET /test/inesperado", logs.all());
             assertFalse(logs.all().contains(SERVICE_KEY));
+        }
+    }
+
+    /** O log do 500 traz a rota registrada, não o valor que o chamador pôs no caminho. */
+    @Test
+    void unexpectedExceptionLogsTheRouteNotThePath() throws Exception {
+        try (LogCapture logs = new LogCapture(ErrorHandler.class)) {
+            HttpResponse<String> response = app.get("/test/inesperado/0xbdd26d8f9b9876d59cd6ebe1f25a1286b8ecacd5",
+                    SERVICE_KEY);
+
+            assertEquals(500, response.statusCode());
+            assertEquals("ERROR Erro inesperado em GET /test/inesperado/{valor}", logs.all());
         }
     }
 }

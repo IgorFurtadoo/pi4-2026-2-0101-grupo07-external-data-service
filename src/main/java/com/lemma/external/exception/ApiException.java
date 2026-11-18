@@ -21,6 +21,11 @@ public class ApiException extends RuntimeException {
         return new ApiException(401, "SERVICE_KEY_INVALID", "Chave de serviço ausente ou incorreta.");
     }
 
+    /** 400 ADDRESS_INVALID: endereço fora de ^0x[0-9a-fA-F]{40}$ no histórico (seção 7 do desenho). */
+    public static ApiException addressInvalid() {
+        return new ApiException(400, "ADDRESS_INVALID", "Endereço Ethereum inválido.");
+    }
+
     /** 404 ASSET_NOT_FOUND: assetId fora do formato ou desconhecido na CoinGecko (seção 6). */
     public static ApiException assetNotFound() {
         return new ApiException(404, "ASSET_NOT_FOUND", "Ativo não encontrado.");
