@@ -21,6 +21,16 @@ public class ApiException extends RuntimeException {
         return new ApiException(401, "SERVICE_KEY_INVALID", "Chave de serviço ausente ou incorreta.");
     }
 
+    /** 404 ASSET_NOT_FOUND: assetId fora do formato ou desconhecido na CoinGecko (seção 6). */
+    public static ApiException assetNotFound() {
+        return new ApiException(404, "ASSET_NOT_FOUND", "Ativo não encontrado.");
+    }
+
+    /** 502 MARKET_DATA_UNAVAILABLE: qualquer falha do CT19 ou do CT20 (seção 6). */
+    public static ApiException marketDataUnavailable() {
+        return new ApiException(502, "MARKET_DATA_UNAVAILABLE", "Dados de mercado indisponíveis.");
+    }
+
     public int getStatus() {
         return status;
     }

@@ -106,11 +106,13 @@ class AppConfigTest {
     }
 
     @Test
-    void failsWhenTimeoutIsNotAPositiveInteger() {
-        for (String value : new String[] {"abc", "0", "-6", "1.5"}) {
-            assertEquals("COINGECKO_TIMEOUT_SECONDS inválida: precisa ser um número inteiro maior que zero",
+    void failsWhenTimeoutIsOutsideOneToSix() {
+        for (String value : new String[] {"abc", "0", "-6", "1.5", "7", "15"}) {
+            assertEquals("COINGECKO_TIMEOUT_SECONDS inválida: precisa ser um número inteiro de 1 a 6",
                     failureMessage(envWith("COINGECKO_TIMEOUT_SECONDS", value)), value);
         }
+        assertEquals(1, AppConfig.fromEnv(envWith("COINGECKO_TIMEOUT_SECONDS", "1")).coingeckoTimeoutSeconds());
+        assertEquals(6, AppConfig.fromEnv(envWith("COINGECKO_TIMEOUT_SECONDS", "6")).coingeckoTimeoutSeconds());
     }
 
     @Test

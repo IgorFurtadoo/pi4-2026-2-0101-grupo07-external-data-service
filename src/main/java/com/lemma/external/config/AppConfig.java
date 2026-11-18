@@ -29,6 +29,13 @@ public record AppConfig(
 
     private static final int MAX_PORT = 65535;
 
+    /**
+     * Teto do prazo de cada chamada à CoinGecko. O CT18 faz duas chamadas em
+     * sequência, e o Core API espera até 15 s: 2 × 6 = 12 s cabe com folga
+     * (seção 6 do desenho). Acima disso o serviço não sobe.
+     */
+    static final int MAX_COINGECKO_TIMEOUT_SECONDS = 6;
+
     public static AppConfig fromEnv(Map<String, String> env) {
         Reader reader = new Reader(env);
 
@@ -38,7 +45,7 @@ public record AppConfig(
         String coingeckoApiKey = reader.secret("COINGECKO_API_KEY", EXAMPLE_COINGECKO_API_KEY,
                 "troque pela chave do plano Demo da CoinGecko");
         String coingeckoBaseUrl = reader.httpUrl("COINGECKO_BASE_URL");
-        int coingeckoTimeoutSeconds = reader.positiveInt("COINGECKO_TIMEOUT_SECONDS");
+        int coingeckoTimeoutSeconds = reader.boundedInt("COINGECKO_TIMEOUT_SECONDS", MAX_COINGECKO_TIMEOUT_SECONDS);
 
         if (!reader.problems.isEmpty()) {
             throw new IllegalStateException(String.join("; ", reader.problems));
@@ -87,6 +94,23 @@ public record AppConfig(
                 // cai na mensagem abaixo
             }
             problems.add(name + " inválida: precisa ser um número inteiro maior que zero");
+            return 0;
+        }
+
+        int boundedInt(String name, int max) {
+            String value = text(name);
+            if (value == null) {
+                return 0;
+            }
+            try {
+                int number = Integer.parseInt(value);
+                if (number >= 1 && number <= max) {
+                    return number;
+                }
+            } catch (NumberFormatException e) {
+                // cai na mensagem abaixo
+            }
+            problems.add(name + " inválida: precisa ser um número inteiro de 1 a " + max);
             return 0;
         }
 
