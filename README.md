@@ -36,7 +36,7 @@ Pré-requisito: Docker com o plugin compose. O serviço não tem banco; ele só 
    - `SERVICE_KEY`: o mesmo valor do `SERVICE_KEY` do Core API.
    - `COINGECKO_API_KEY`: a chave do plano Demo da CoinGecko.
 
-   Mantenha `SERVER_PORT=8082`. O serviço não sobe se faltar variável, se um segredo estiver vazio ou com o valor de exemplo; o motivo aparece no log.
+   Mantenha `SERVER_PORT=8082`. As variáveis do histórico (`BLOCKSCOUT_BASE_URL`, `BLOCKSCOUT_TIMEOUT_SECONDS` e `HISTORY_CACHE_SECONDS`) não são segredo e podem ficar com os valores do exemplo; quem já tem um `.env` antigo precisa acrescentá-las. O serviço não sobe se faltar variável, se um segredo estiver vazio ou com o valor de exemplo, ou se um valor estiver fora dos limites; o motivo aparece no log.
 
 3. Suba o serviço:
 
@@ -83,3 +83,21 @@ curl -s -H "X-Service-Key: $SERVICE_KEY" http://127.0.0.1:8082/market-data/ether
 | 502 `MARKET_DATA_UNAVAILABLE` | CoinGecko fora do ar, com limite excedido, chave recusada, tempo esgotado ou resposta fora do formato |
 
 Cada chamada à CoinGecko tem uma tentativa e prazo de `COINGECKO_TIMEOUT_SECONDS` (de 1 a 6 s); cada requisição gasta até 2 créditos do plano Demo.
+
+### `GET /addresses/{ethereumAddress}/transactions` (CT24)
+
+Histórico de um endereço da Sepolia, lido do Blockscout público sem chave (CT25): até 20 transações já mineradas, mais recentes primeiro (só a primeira página; pendentes ficam de fora). Contratos em docs/contratos/CT24-fetchAddressTransactions.md e docs/contratos/CT25-blockscoutGetAddressTransactions.md.
+
+```sh
+curl -s -H "X-Service-Key: $SERVICE_KEY" \
+  http://127.0.0.1:8082/addresses/0xbdd26d8f9b9876d59cd6ebe1f25a1286b8ecacd5/transactions
+```
+
+| Resposta | Quando |
+|---|---|
+| 200 `{ethereumAddress, network: "SEPOLIA", transactions: [{hash, direction, counterpartyAddress, amountEth, timestamp, status}]}` | `direction` SENT, RECEIVED ou SELF; `amountEth` em **texto** decimal exato (`"0.0005"`); `timestamp` em ISO 8601 UTC; `status` CONFIRMED ou FAILED. Endereço sem transações: `transactions: []` |
+| 400 `ADDRESS_INVALID` | Endereço fora de `^0x[0-9a-fA-F]{40}$` (sem chamar o Blockscout) |
+| 401 `SERVICE_KEY_INVALID` | `X-Service-Key` ausente ou errada |
+| 502 `HISTORY_UNAVAILABLE` | Blockscout fora do ar, com limite excedido, tempo esgotado ou resposta fora do formato (sem resposta parcial) |
+
+Uma tentativa por chamada, com prazo de `BLOCKSCOUT_TIMEOUT_SECONDS` (de 1 a 10 s). O resultado fica em cache por endereço (sem diferenciar maiúsculas) durante `HISTORY_CACHE_SECONDS` (de 1 a 60 s), para até 100 endereços; erro não entra no cache. A instância pública do Blockscout limita 180 requisições por minuto.
