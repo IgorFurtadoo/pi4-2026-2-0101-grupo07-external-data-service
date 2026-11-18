@@ -34,5 +34,14 @@ Exemplo: `{"ethereum": {"usd": 3200.45}}`.
 |---|---|
 | Chave ausente ou inválida | HTTP 401. O External Data Service responde HTTP 502, `code` MARKET_DATA_UNAVAILABLE |
 | Limite do plano Demo excedido | HTTP 429. O External Data Service responde HTTP 502, `code` MARKET_DATA_UNAVAILABLE |
-| `ids` desconhecido | A ser confirmado em teste: provavelmente HTTP 200 com objeto vazio `{}`. O External Data Service trata como HTTP 404, `code` ASSET_NOT_FOUND |
+| `ids` desconhecido | HTTP 200 com objeto vazio `{}` (confirmado; ver nota abaixo). O External Data Service trata como HTTP 404, `code` ASSET_NOT_FOUND, e não chama o CT20 |
 | CoinGecko fora do ar ou tempo esgotado | Falha de conexão ou HTTP 5xx. O External Data Service responde HTTP 502, `code` MARKET_DATA_UNAVAILABLE |
+
+## Nota [Verificado em 18/11/2026]
+
+Conferido com a CoinGecko real (plano Demo), por `curl` e pelo External Data Service:
+
+- **`ids` desconhecido** (`ids=assetinexistente&vs_currencies=usd`): HTTP 200, `Content-Type: application/json; charset=utf-8`, corpo `{}`.
+- **`ids=ethereum`**: HTTP 200 no formato do exemplo (`{"ethereum": {"usd": ...}}`); o External Data Service leu o preço `1807.09`.
+- **Chave inválida:** com um valor falso em `x-cg-demo-api-key`, a CoinGecko **não** respondeu 401: respondeu HTTP 200 com o preço real. A linha "Chave ausente ou inválida" fica como o tratamento previsto caso a CoinGecko passe a recusar a chave; na prática, chave errada não gera 502.
+- **Fora do formato:** `{"{id}": {}}` (id presente sem `usd`), `usd` em texto, negativo, com mais de 30 casas ou mais de 20 dígitos inteiros: o External Data Service responde HTTP 502, `code` MARKET_DATA_UNAVAILABLE.

@@ -35,5 +35,14 @@ Cada par é [instante em milissegundos desde 1970, preço em USD]. O External Da
 |---|---|
 | Chave ausente ou inválida | HTTP 401. O External Data Service responde HTTP 502, `code` MARKET_DATA_UNAVAILABLE |
 | Limite do plano Demo excedido | HTTP 429. O External Data Service responde HTTP 502, `code` MARKET_DATA_UNAVAILABLE |
-| `id` inválido | A ser confirmado em teste (provável HTTP 404). O External Data Service trata como HTTP 404, `code` ASSET_NOT_FOUND |
+| `id` inválido | HTTP 404 com corpo `{"error":"coin not found"}` (confirmado; ver nota abaixo). O External Data Service trata como HTTP 404, `code` ASSET_NOT_FOUND |
 | CoinGecko fora do ar ou tempo esgotado | Falha de conexão ou HTTP 5xx. O External Data Service responde HTTP 502, `code` MARKET_DATA_UNAVAILABLE |
+
+## Nota [Verificado em 18/11/2026]
+
+Conferido com a CoinGecko real (plano Demo), por `curl` e pelo External Data Service:
+
+- **`id` desconhecido** (`/coins/assetinexistente/market_chart?vs_currency=usd&days=7`): HTTP 404, `Content-Type: application/json; charset=utf-8`, corpo `{"error":"coin not found"}`.
+- **`id=ethereum`, `days=7`:** HTTP 200 com 169 pares em `prices`: 168 de hora em hora (hora cheia, por exemplo `2026-11-11T05:00:00Z`) e, no fim, um ponto no instante da consulta (por exemplo `2026-11-18T04:20:30Z`). Instante em milissegundos inteiros; preços como número JSON com até 13 casas (por exemplo `2062.135215537902`).
+- **Chave inválida:** com um valor falso em `x-cg-demo-api-key`, a CoinGecko **não** respondeu 401: respondeu HTTP 200 com a série real. Na prática, chave errada não gera 502.
+- **Fora do formato:** `prices` ausente ou vazia, par que não seja `[ms inteiro, preço]`, ou preço negativo, em texto, com mais de 30 casas ou mais de 20 dígitos inteiros: o External Data Service responde HTTP 502, `code` MARKET_DATA_UNAVAILABLE, sem resposta parcial.
