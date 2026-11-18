@@ -15,7 +15,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * ServiceKeyFilter por HTTP real, com a configuração do Main e uma rota que só
- * existe neste teste (o E1 ainda não tem rota de negócio).
+ * existe neste teste.
  */
 class ServiceKeyFilterTest {
 

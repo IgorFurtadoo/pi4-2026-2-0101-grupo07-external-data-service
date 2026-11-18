@@ -1,5 +1,9 @@
 package com.lemma.external;
 
+import com.lemma.external.client.CoinGeckoClient;
+import com.lemma.external.client.FakeCoinGecko;
+import com.lemma.external.controller.MarketDataController;
+import com.lemma.external.service.MarketDataService;
 import io.javalin.Javalin;
 import io.javalin.config.JavalinConfig;
 
@@ -8,26 +12,52 @@ import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.time.Duration;
 import java.util.function.Consumer;
 
 /**
  * Sobe o serviço numa porta livre de 127.0.0.1 com a mesma configuração do Main
- * (Main.configure) e uma chave de serviço de teste. As rotas que os testes usam
- * só existem aqui (o E1 não tem rota de negócio). Sem rede externa.
+ * (Main.configure), uma chave de serviço de teste e a CoinGecko falsa (servidor
+ * HTTP do JDK, o mesmo CoinGeckoClient do Main). Os testes podem acrescentar rotas
+ * próprias. Sem rede externa.
  */
 public final class TestApp {
 
     /** Chave de serviço obviamente falsa, só para os testes. */
     public static final String SERVICE_KEY = "chave-de-servico-de-teste-falsa";
+    /** Chave da CoinGecko obviamente falsa, só para os testes. */
+    public static final String COINGECKO_API_KEY = "chave-coingecko-de-teste-falsa";
+    /** Prazo padrão de cada chamada à CoinGecko nos testes. */
+    public static final Duration DEFAULT_COINGECKO_TIMEOUT = Duration.ofSeconds(2);
 
     private static final HttpClient http = HttpClient.newHttpClient();
 
+    /** CoinGecko falsa; fechada no stop. */
+    public final FakeCoinGecko coinGecko = new FakeCoinGecko(COINGECKO_API_KEY);
+
+    private final Duration coinGeckoTimeout;
     private Javalin app;
+
+    public TestApp() {
+        this(DEFAULT_COINGECKO_TIMEOUT);
+    }
+
+    /** Com um prazo próprio por chamada à CoinGecko, para os testes de tempo esgotado. */
+    public TestApp(Duration coinGeckoTimeout) {
+        this.coinGeckoTimeout = coinGeckoTimeout;
+    }
+
+    public TestApp start() {
+        return start(javalin -> {
+        });
+    }
 
     /** Sobe com a configuração do Main e, depois dela, as rotas que só existem no teste. */
     public TestApp start(Consumer<JavalinConfig> testRoutes) {
+        MarketDataController marketData = new MarketDataController(new MarketDataService(
+                new CoinGeckoClient(coinGecko.baseUrl(), COINGECKO_API_KEY, coinGeckoTimeout)));
         app = Javalin.create(javalin -> {
-            Main.configure(javalin, SERVICE_KEY);
+            Main.configure(javalin, SERVICE_KEY, marketData);
             testRoutes.accept(javalin);
         }).start("127.0.0.1", 0);
         return this;
@@ -37,6 +67,7 @@ public final class TestApp {
         if (app != null) {
             app.stop();
         }
+        coinGecko.close();
     }
 
     /** GET no caminho, com X-Service-Key se a chave não for null. */
